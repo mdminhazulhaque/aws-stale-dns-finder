@@ -1,2 +1,4 @@
+requests
 click
 boto3
+tabulate
