@@ -66,12 +66,13 @@ baz.mdminhazulhaque.io.   loadbalancer       us-west-2  lb-baz
 
 ## Workflow
 
+| Steps| Command |
 |-----------------------------------------------|------------------------------------|
-| Create a valid config file named `config.ini` | `cp config.example.ini config.ini` |
-| Import DNS records from Hosted Zone | `python3 app.py import-dns` |
-| Fetch Resources from All Accounts | `python3 app.py fetch-all` |
-| Prepare Report | `python3 app.py analyze` |
-| Clear Cached Data | `python3 app.py clear` |
+| :file_folder: Create a valid config file named `config.ini` | `cp config.example.ini config.ini` |
+| :arrow_down: Import DNS records from Hosted Zone | `python3 app.py import-dns` |
+| :arrows_counterclockwise: Fetch Resources from All Accounts | `python3 app.py fetch-all` |
+| :mag_right: Prepare Report | `python3 app.py analyze` |
+| :warning: Clear Cached Data | `python3 app.py clear` |
 
 ## TODO
 
