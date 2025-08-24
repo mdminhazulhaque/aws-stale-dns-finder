@@ -1,4 +1,5 @@
-*.json
+# Cache files
+*.cache.json
 
 config.ini
 

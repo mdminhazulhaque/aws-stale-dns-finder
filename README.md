@@ -16,7 +16,7 @@ AWS Stale DNS Finder is a comprehensive tool that identifies orphaned and stale 
 
 1. **Import DNS Records** - Extracts all DNS records from your specified Route 53 hosted zone
 2. **Fetch AWS Resources** - Scans multiple AWS services across regions and accounts to inventory active resources
-3. **Cross-Reference & Analyze** - Matches DNS records against actual resources to identify orphaned entries
+3. **Cross-Reference & Report** - Matches DNS records against actual resources to identify orphaned entries
 4. **Generate Report** - Produces a detailed report showing stale DNS records with resource details
 
 ## Supported AWS Services
@@ -33,7 +33,7 @@ AWS Stale DNS Finder is a comprehensive tool that identifies orphaned and stale 
 ## Demo Run
 
 ```bash
-$ python3 app.py analyze 
+$ python3 app.py report 
 record                    type               region     name
 ------------------------  -----------------  ---------  ---------------
 mdminhazulhaque.io.       loadbalancer       us-east-2  prod-web-lb
@@ -52,9 +52,9 @@ Follow this command sequence for optimal results:
 
 | Command | Description |
 |---------|-------------|
-| `python3 app.py import-dns` | 📥 Import Route 53 DNS records |
-| `python3 app.py fetch-all` | 🔍 Scan AWS resources across accounts/regions |
-| `python3 app.py analyze` | 📊 Cross-reference and generate stale DNS report |
+| `python3 app.py scan-dns` | 📥 Scan Route 53 DNS records |
+| `python3 app.py scan-resources` | 🔍 Scan AWS resources across accounts/regions |
+| `python3 app.py report` | 📊 Generate stale DNS report |
 | `python3 app.py clear-data` | 🗑️ Clear all cached data files (optional) |
 
 ## Advanced Configuration
@@ -152,28 +152,18 @@ lightsail
 Run these commands in sequence:
 
 ```bash
-# 1. Import DNS records from Route 53
-python3 app.py import-dns
+# 1. Scan DNS records from Route 53
+python3 app.py scan-dns
 
-# 2. Fetch all AWS resources across accounts/regions
-python3 app.py fetch-all
+# 2. Scan AWS resources across accounts/regions
+python3 app.py scan-resources
 
-# 3. Analyze and generate stale DNS report
-python3 app.py analyze
+# 3. Generate stale DNS report
+python3 app.py report
 
 # Optional: Clear cached data for fresh run
 python3 app.py clear-data
 ```
-
-## Workflow
-
-| Steps | Command |
-|-------|---------|
-| 📁 Create a valid config file named `config.ini` | `cp config.example.ini config.ini` |
-| ⬇️ Import DNS records from Hosted Zone | `python3 app.py import-dns` |
-| 🔄 Fetch Resources from All Accounts | `python3 app.py fetch-all` |
-| 🔍 Prepare Report | `python3 app.py analyze` |
-| ⚠️ Clear Cached Data | `python3 app.py clear-data` |
 
 ## Roadmap
 

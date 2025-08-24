@@ -1,47 +1,70 @@
-from lib.filecache import cache_write, cache_read, cache_clear
+from .base_adapter import BaseAdapter
+from typing import Dict, Any
 
-def findName(tags):
-    for tag in tags:
-        if tag["Key"] == "Name":
-            return tag["Value"]
-    return None
 
-def do_search(sessions, regions):
-    data = {}
-    for session in sessions:
-        for region in regions:            
-            ec2 = session.client('ec2', verify=False, region_name=region)
-            instances = ec2.describe_instances(
-                MaxResults=1000
-            )
+class EC2Adapter(BaseAdapter):
+    """AWS EC2 instances adapter for DNS scanning."""
+    
+    def get_service_name(self) -> str:
+        """Return the AWS service name."""
+        return 'ec2'
+    
+    def scan_resources(self, client: Any, region: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Scan EC2 instances in a specific region.
+        
+        Args:
+            client: EC2 boto3 client
+            region: AWS region name
+            
+        Returns:
+            Dictionary mapping public IPs to instance info
+        """
+        data = {}
+        
+        try:
+            instances = client.describe_instances(MaxResults=1000)
             
             if len(instances['Reservations']) == 0:
-                continue
+                return data
             
             for reservation in instances['Reservations']:
                 for instance in reservation['Instances']:
-
+                    # Only process instances with public IP addresses
                     if 'PublicIpAddress' not in instance:
                         continue
 
-                    PublicIpAddress = instance['PublicIpAddress']
+                    public_ip = instance['PublicIpAddress']
+                    name = self.find_name_tag(instance.get('Tags', []))
+                    instance_id = instance["InstanceId"]
 
-                    Name = findName(instance['Tags'])
-                    Id = instance["InstanceId"]
-
-                    _instance = {
+                    instance_info = {
                         "type": "instance",
-                        "id": Id,
-                        "name": Name,
+                        "id": instance_id,
+                        "name": name,
                         "region": region
                     }
 
-                    data[PublicIpAddress] = _instance
-    
-    cache_write(__file__, data)
+                    data[public_ip] = instance_info
+                    
+        except Exception as e:
+            print(f"❌ Error scanning EC2 instances in {region}: {e}")
+        
+        return data
+
+
+# Create a global instance for backward compatibility
+_adapter = EC2Adapter()
+
+# Legacy function wrappers for backward compatibility
+def do_search(sessions, regions):
+    """Legacy function wrapper."""
+    _adapter.do_search(sessions, regions)
 
 def get_data():
-    return cache_read(__file__)
+    """Legacy function wrapper."""
+    return _adapter.get_data()
 
 def clear_data():
-    return cache_clear(__file__)
+    """Legacy function wrapper."""
+    return _adapter.clear_data()

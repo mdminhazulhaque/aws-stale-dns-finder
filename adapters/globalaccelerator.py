@@ -1,37 +1,86 @@
-from lib.filecache import cache_write, cache_read, cache_clear
+from .base_adapter import BaseAdapter
+from typing import Dict, Any
 
-def do_search(sessions, regions):
-    data = {}
-    for session in sessions:
-        globalaccelerator = session.client('globalaccelerator',
-            verify=False,
-            region_name="us-west-2"
-        )
-        accelerators = globalaccelerator.list_accelerators(
-            MaxResults=50
-        )
 
-        if len(accelerators['Accelerators']) == 0:
-            continue
-        
-        for accelerator in accelerators['Accelerators']:
-            DnsName = accelerator['DnsName'].lower()
-
-            Name = accelerator['Name']
-            Id = accelerator["AcceleratorArn"]
-
-            _accelerator = {
-                "type": "globalaccelerator",
-                "id": Id,
-                "name": Name,
-                "region": "us-west-2"
-            }
-            data[DnsName] = _accelerator
+class GlobalAcceleratorAdapter(BaseAdapter):
+    """AWS Global Accelerator adapter for DNS scanning."""
     
-    cache_write(__file__, data)
+    def get_service_name(self) -> str:
+        """Return the AWS service name."""
+        return 'globalaccelerator'
+    
+    def do_search(self, sessions, regions):
+        """
+        Global Accelerator is a global service, so we override do_search
+        to handle the special case of using us-west-2 region.
+        """
+        data = {}
+        
+        for session in sessions:
+            try:
+                # Global Accelerator requires us-west-2 region
+                client = session.client('globalaccelerator', 
+                                      verify=False, 
+                                      region_name="us-west-2")
+                region_data = self.scan_resources(client, "us-west-2")
+                data.update(region_data)
+            except Exception as e:
+                print(f"❌ Error scanning Global Accelerator: {e}")
+                continue
+        
+        self.write_cache(data)
+    
+    def scan_resources(self, client: Any, region: str) -> Dict[str, Dict[str, Any]]:
+        """
+        Scan Global Accelerator resources.
+        
+        Args:
+            client: Global Accelerator boto3 client
+            region: AWS region name (always us-west-2 for Global Accelerator)
+            
+        Returns:
+            Dictionary mapping DNS names to accelerator info
+        """
+        data = {}
+        
+        try:
+            accelerators = client.list_accelerators(MaxResults=50)
+
+            if len(accelerators['Accelerators']) == 0:
+                return data
+            
+            for accelerator in accelerators['Accelerators']:
+                dns_name = accelerator['DnsName'].lower()
+                name = accelerator['Name']
+                accelerator_id = accelerator["AcceleratorArn"]
+
+                accelerator_info = {
+                    "type": "globalaccelerator",
+                    "id": accelerator_id,
+                    "name": name,
+                    "region": "us-west-2"  # Global Accelerator is always in us-west-2
+                }
+                
+                data[dns_name] = accelerator_info
+                
+        except Exception as e:
+            print(f"❌ Error scanning Global Accelerator: {e}")
+        
+        return data
+
+
+# Create a global instance for backward compatibility
+_adapter = GlobalAcceleratorAdapter()
+
+# Legacy function wrappers for backward compatibility
+def do_search(sessions, regions):
+    """Legacy function wrapper."""
+    _adapter.do_search(sessions, regions)
 
 def get_data():
-    return cache_read(__file__)
+    """Legacy function wrapper."""
+    return _adapter.get_data()
 
 def clear_data():
-    return cache_clear(__file__)
+    """Legacy function wrapper."""
+    return _adapter.clear_data()
