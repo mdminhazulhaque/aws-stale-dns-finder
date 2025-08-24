@@ -14,9 +14,9 @@ class ResourceScanner:
         Args:
             app_config: Application configuration dictionary
         """
+        adapters = list(app_config['search-adapters'].keys())
         profiles = list(app_config['search-profiles'].keys())
         regions = list(app_config['search-regions'].keys())
-        adapters = list(app_config['search-adapters'].keys())
 
         print("🌐 Scanning AWS resources across accounts and regions")
 

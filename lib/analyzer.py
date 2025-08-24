@@ -1,6 +1,8 @@
 from tabulate import tabulate as t
 import importlib
 import sys
+import os
+import glob
 from typing import Dict, Any, List
 from .dns_scanner import DNSScanner, DNSCacheNotFoundError
 from .cache import Cache
@@ -24,8 +26,12 @@ class Analyzer:
         """
         adapters = list(app_config['search-adapters'].keys())
 
+        # Extract zone ID from config
+        hostedzoneid = app_config['hostedzone']['hostedzoneid']
+        zone_id = hostedzoneid.replace('/hostedzone/', '')
+
         try:
-            dns_keys = DNSScanner.get_data()
+            dns_keys = DNSScanner.get_data(zone_id)
         except DNSCacheNotFoundError as e:
             print(f"❌ Error: {e}")
             sys.exit(1)
@@ -150,8 +156,15 @@ class Analyzer:
                 print(f"⚠️  Failed to clear {adapter} cache: {e}")
         
         print("🧹 Clearing DNS cache...")
-        # Import the module to clear its cache
-        from . import dns_scanner
-        Cache.clear(dns_scanner.__file__)
+        # Clear DNS cache files
+        import glob
+        dns_pattern = os.path.join(os.getcwd(), "dns.*.cache.json")
+        dns_files = glob.glob(dns_pattern)
+        for dns_file in dns_files:
+            try:
+                os.remove(dns_file)
+                print(f"✅ Cleared DNS cache: {os.path.basename(dns_file)}")
+            except Exception as e:
+                print(f"⚠️  Failed to clear DNS cache {dns_file}: {e}")
         
         print("✅ Cache cleanup completed")

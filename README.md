@@ -33,17 +33,28 @@ AWS Stale DNS Finder is a comprehensive tool that identifies orphaned and stale 
 ## Demo Run
 
 ```bash
-$ python3 app.py report 
-record                    type               region     name
-------------------------  -----------------  ---------  ---------------
-mdminhazulhaque.io.       loadbalancer       us-east-2  prod-web-lb
-demo.mdminhazulhaque.io.  instance           us-west-1  i-5a6b7c8d1100
-api.mdminhazulhaque.io.   instance           us-west-2  i-5a6b7c8d1100
-bob.mdminhazulhaque.io.   lightsail          us-west-1  bitnami-server
-alice.mdminhazulhaque.io. instance           us-west-2  i-5a6b7c8d1100
-foo.mdminhazulhaque.io.   instance           us-west-1  i-5a6b7c8d1100
-bar.mdminhazulhaque.io.   globalaccelerator  us-west-2  prod-api-ga
-baz.mdminhazulhaque.io.   loadbalancer       us-west-2  lb-baz
+$ python3 app.py scan-dns     
+🔍 Scanning DNS records from /hostedzone/ZOONNEEDDEEAADDBBEEFF
+⚙️  Processing records from /hostedzone/ZOONNEEDDEEAADDBBEEFF
+✅ Done
+
+$ python3 app.py scan-resources
+🌐 Scanning AWS resources across accounts and regions
+🔌 Loading adapter ec2
+🔌 Loading adapter elbv2
+🔌 Loading adapter globalaccelerator
+🔌 Loading adapter lightsail
+
+📊 Generating stale DNS report...
+
+| Record                         | Status | Type         | Region         | Name      |
+|--------------------------------|--------|--------------|----------------|-----------|
+| mdminhazulhaque.io.            | ✅     | loadbalancer | us-west-2      | prod      |
+| api-stage.mdminhazulhaque.io.  | ✅     | ec2          | us-east-1      | 100.1.2.3 |
+| api.mdminhazulhaque.io.        | ✅     | ec2          | us-west-2      | 54.3.2.1  |
+| app.mdminhazulhaque.io.        | ✅     | lightsail    | ap-southeast-1 | 3.100.1.2 |
+| chroma.mdminhazulhaque.io.     | ❌     |              |                |           |
+| docs.mdminhazulhaque.io.       | ❌     |              |                |           |
 ```
 
 ## Command Flow
@@ -57,7 +68,7 @@ Follow this command sequence for optimal results:
 | `python3 app.py report` | 📊 Generate stale DNS report |
 | `python3 app.py clear-data` | 🗑️ Clear all cached data files (optional) |
 
-## Advanced Configuration
+## Configuration
 
 ### Filtering Options
 

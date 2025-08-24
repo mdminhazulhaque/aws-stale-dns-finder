@@ -23,11 +23,14 @@ class DNSScanner:
         """
         hostedzoneid = app_config['hostedzone']['hostedzoneid']
         profile = app_config['hostedzone']['profile']
-        ignore_key = app_config['hostedzone']['ignore_key']
-        ignore_value = app_config['hostedzone']['ignore_value']
+        ignore_key = app_config['hostedzone'].get('ignore_key', '')
+        ignore_value = app_config['hostedzone'].get('ignore_value', '')
 
         print(f"🔍 Scanning DNS records from {hostedzoneid}")
 
+        # Extract zone ID
+        zone_id = hostedzoneid.replace('/hostedzone/', '')
+        
         session = boto3.session.Session(profile_name=profile)
         route53 = session.client('route53', verify=False)
         records = route53.list_resource_record_sets(
@@ -38,7 +41,8 @@ class DNSScanner:
         print(f"⚙️  Processing records from {hostedzoneid}")
         data = DNSScanner._process_records(records, ignore_key, ignore_value)
         
-        Cache.write(__file__, data)
+        # Save DNS cache with zone ID only (zone IDs are globally unique)
+        Cache.write_with_id('dns', zone_id, data)
         print("✅ Done")
 
     @staticmethod
@@ -58,7 +62,8 @@ class DNSScanner:
         
         for record in records['ResourceRecordSets']:
             name = record['Name']
-            if re.findall(r'{}'.format(ignore_key), name):
+            # Skip ignore_key check if pattern is empty
+            if ignore_key and re.findall(r'{}'.format(ignore_key), name):
                 continue
 
             if record['Type'] == 'A' or record['Type'] == 'CNAME':
@@ -69,7 +74,8 @@ class DNSScanner:
                 else:
                     value = record['ResourceRecords'][0]['Value']
 
-                if re.findall(r'{}'.format(ignore_value), value):
+                # Skip ignore_value check if pattern is empty
+                if ignore_value and re.findall(r'{}'.format(ignore_value), value):
                     continue
                 else:
                     data[name] = value.replace("dualstack.", "").rstrip(".")
@@ -77,9 +83,12 @@ class DNSScanner:
         return data
 
     @staticmethod
-    def get_data() -> Dict[str, str]:
+    def get_data(zone_id: str = None) -> Dict[str, str]:
         """
         Retrieve cached DNS data.
+        
+        Args:
+            zone_id: Hosted zone ID (without /hostedzone/ prefix)
         
         Returns:
             Dictionary of DNS records
@@ -87,13 +96,17 @@ class DNSScanner:
         Raises:
             DNSCacheNotFoundError: If DNS cache file doesn't exist
         """
-        try:
-            return Cache.read(__file__)
-        except CacheNotFoundError as e:
-            import os
-            base_name = os.path.splitext(os.path.basename(__file__))[0]
-            cache_file = os.path.join(os.getcwd(), f"{base_name}.cache.json")
+        if zone_id:
+            try:
+                return Cache.read_with_id('dns', zone_id)
+            except CacheNotFoundError as e:
+                cache_file = os.path.join(os.getcwd(), f"dns.{zone_id}.cache.json")
+                raise DNSCacheNotFoundError(
+                    f"❌ DNS cache file not found: {cache_file}\n"
+                    f"💡 Please run 'python3 app.py scan-dns' first to scan DNS records."
+                ) from e
+        else:
             raise DNSCacheNotFoundError(
-                f"❌ DNS cache file not found: {cache_file}\n"
+                f"❌ Zone ID is required to read DNS cache.\n"
                 f"💡 Please run 'python3 app.py scan-dns' first to scan DNS records."
-            ) from e
+            )

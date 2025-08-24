@@ -16,6 +16,16 @@ class GlobalAcceleratorAdapter(BaseAdapter):
         """
         data = {}
         
+        # Get account ID from the first session for cache naming
+        account_id = "unknown"
+        if sessions:
+            try:
+                sts_client = sessions[0].client('sts')
+                account_id = sts_client.get_caller_identity()['Account']
+            except Exception:
+                # Fallback to unknown if we can't get account ID
+                pass
+        
         for session in sessions:
             try:
                 # Global Accelerator requires us-west-2 region
@@ -28,7 +38,7 @@ class GlobalAcceleratorAdapter(BaseAdapter):
                 print(f"❌ Error scanning Global Accelerator: {e}")
                 continue
         
-        self.write_cache(data)
+        self.write_cache(data, account_id)
     
     def scan_resources(self, client: Any, region: str) -> Dict[str, Dict[str, Any]]:
         """

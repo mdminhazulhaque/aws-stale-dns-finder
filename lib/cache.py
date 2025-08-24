@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Union
+from typing import Any, Union, List, Dict
 
 
 class CacheNotFoundError(Exception):
@@ -25,6 +25,47 @@ class Cache:
         file_path = os.path.join(os.getcwd(), f"{base_name}.cache.json")
         with open(file_path, "w") as fp:
             json.dump(data, fp, indent=4)
+
+    @staticmethod
+    def write_with_id(base_name: str, identifier: str, data: Any) -> None:
+        """
+        Write data to cache file with custom identifier.
+        
+        Args:
+            base_name: Base name for the cache file (e.g., 'dns', 'ec2')
+            identifier: Unique identifier (e.g., zone ID, account ID)
+            data: Data to cache
+        """
+        file_path = os.path.join(os.getcwd(), f"{base_name}.{identifier}.cache.json")
+        with open(file_path, "w") as fp:
+            json.dump(data, fp, indent=4)
+
+    @staticmethod
+    def read_with_id(base_name: str, identifier: str) -> Any:
+        """
+        Read data from cache file with custom identifier.
+        
+        Args:
+            base_name: Base name for the cache file (e.g., 'dns', 'ec2')
+            identifier: Unique identifier (e.g., zone ID, account ID)
+            
+        Returns:
+            Cached data
+            
+        Raises:
+            CacheNotFoundError: If cache file doesn't exist
+        """
+        file_path = os.path.join(os.getcwd(), f"{base_name}.{identifier}.cache.json")
+        if not os.path.exists(file_path):
+            raise CacheNotFoundError(f"Cache file not found: {file_path}")
+        
+        try:
+            with open(file_path, "r") as fp:
+                return json.load(fp)
+        except json.JSONDecodeError as e:
+            raise CacheNotFoundError(f"Invalid cache file format: {file_path}") from e
+        except Exception as e:
+            raise CacheNotFoundError(f"Error reading cache file: {file_path}") from e
 
     @staticmethod
     def read(key: Union[str, Any]) -> Any:
@@ -53,6 +94,25 @@ class Cache:
             raise CacheNotFoundError(f"Invalid cache file format: {file_path}") from e
         except Exception as e:
             raise CacheNotFoundError(f"Error reading cache file: {file_path}") from e
+
+    @staticmethod
+    def clear_with_id(base_name: str, identifier: str) -> bool:
+        """
+        Clear cache file with custom identifier.
+        
+        Args:
+            base_name: Base name for the cache file (e.g., 'dns', 'ec2')
+            identifier: Unique identifier (e.g., zone ID, account ID)
+            
+        Returns:
+            True if file was deleted, False if file didn't exist
+        """
+        file_path = os.path.join(os.getcwd(), f"{base_name}.{identifier}.cache.json")
+        try:
+            os.remove(file_path)
+            return True
+        except FileNotFoundError:
+            return False
 
     @staticmethod
     def clear(key: Union[str, Any]) -> bool:

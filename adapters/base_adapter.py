@@ -1,5 +1,6 @@
 import os
 import json
+import glob
 import tempfile
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
@@ -67,6 +68,16 @@ class BaseAdapter(ABC):
         data = {}
         service_name = self.get_service_name()
         
+        # Get account ID from the first session for cache naming
+        account_id = "unknown"
+        if sessions:
+            try:
+                sts_client = sessions[0].client('sts')
+                account_id = sts_client.get_caller_identity()['Account']
+            except Exception:
+                # Fallback to unknown if we can't get account ID
+                pass
+        
         for session in sessions:
             for region in regions:
                 try:
@@ -77,20 +88,28 @@ class BaseAdapter(ABC):
                     print(f"❌ Error scanning {service_name} in {region}: {e}")
                     continue
         
-        self.write_cache(data)
+        self.write_cache(data, account_id)
     
-    def write_cache(self, data: Dict[str, Any]) -> None:
+    def write_cache(self, data: Dict[str, Any], account_id: str = None) -> None:
         """
         Write data to cache file in current working directory.
         
         Args:
             data: Data to cache
+            account_id: AWS account ID for cache naming
         """
         try:
-            with open(self.cache_file, 'w') as fp:
-                json.dump(data, fp, indent=4)
+            if account_id:
+                adapter_name = self.__class__.__name__.lower().replace('adapter', '')
+                from lib.cache import Cache
+                Cache.write_with_id(adapter_name, account_id, data)
+            else:
+                # Fallback to old method
+                with open(self.cache_file, 'w') as fp:
+                    json.dump(data, fp, indent=4)
         except Exception as e:
-            print(f"❌ Error writing cache to {self.cache_file}: {e}")
+            cache_file = self.cache_file if not account_id else f"{self.__class__.__name__.lower().replace('adapter', '')}.{account_id}.cache.json"
+            print(f"❌ Error writing cache to {cache_file}: {e}")
     
     def read_cache(self) -> Dict[str, Any]:
         """
@@ -102,20 +121,35 @@ class BaseAdapter(ABC):
         Raises:
             AdapterCacheNotFoundError: If cache file doesn't exist
         """
-        if not os.path.exists(self.cache_file):
+        # For reading, we need to find the cache file by pattern since we don't know the account ID
+        adapter_name = self.__class__.__name__.lower().replace('adapter', '')
+        
+        # Try account-specific cache files first
+        pattern = os.path.join(os.getcwd(), f"{adapter_name}.*.cache.json")
+        matching_files = glob.glob(pattern)
+        
+        # If no account-specific files, try the old format
+        if not matching_files:
+            old_pattern = os.path.join(os.getcwd(), f"{adapter_name}.cache.json")
+            matching_files = glob.glob(old_pattern)
+        
+        if matching_files:
+            # Use the first matching file
+            cache_file = matching_files[0]
+            try:
+                with open(cache_file, 'r') as fp:
+                    return json.load(fp)
+            except json.JSONDecodeError as e:
+                raise AdapterCacheNotFoundError(f"❌ Invalid cache file format: {cache_file}") from e
+            except Exception as e:
+                raise AdapterCacheNotFoundError(f"❌ Error reading cache file: {cache_file}") from e
+        else:
+            # No cache files found
             adapter_name = self.get_service_name()
             raise AdapterCacheNotFoundError(
-                f"❌ Cache file not found for {adapter_name} adapter: {self.cache_file}\n"
+                f"❌ Cache file not found for {adapter_name} adapter\n"
                 f"💡 Please run 'python3 app.py scan-resources' first to scan AWS resources."
             )
-        
-        try:
-            with open(self.cache_file, 'r') as fp:
-                return json.load(fp)
-        except json.JSONDecodeError as e:
-            raise AdapterCacheNotFoundError(f"❌ Invalid cache file format: {self.cache_file}") from e
-        except Exception as e:
-            raise AdapterCacheNotFoundError(f"❌ Error reading cache file: {self.cache_file}") from e
     
     def clear_cache(self) -> bool:
         """
@@ -124,14 +158,21 @@ class BaseAdapter(ABC):
         Returns:
             True if file was deleted, False if file didn't exist
         """
-        try:
-            os.remove(self.cache_file)
-            return True
-        except FileNotFoundError:
-            return False
-        except Exception as e:
-            print(f"❌ Error clearing cache {self.cache_file}: {e}")
-            return False
+        # Clear all cache files for this adapter (across all accounts)
+        import glob
+        adapter_name = self.__class__.__name__.lower().replace('adapter', '')
+        pattern = os.path.join(os.getcwd(), f"{adapter_name}.*.cache.json")
+        matching_files = glob.glob(pattern)
+        
+        deleted_any = False
+        for cache_file in matching_files:
+            try:
+                os.remove(cache_file)
+                deleted_any = True
+            except Exception as e:
+                print(f"❌ Error clearing cache {cache_file}: {e}")
+        
+        return deleted_any
     
     def cache_exists(self) -> bool:
         """
